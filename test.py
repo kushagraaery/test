@@ -238,7 +238,6 @@ if not st.session_state.report_data.empty:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-# Email Sending Function (Generic SMTP)
 def send_email(smtp_server, smtp_port, sender_email, sender_password, receiver_email, subject, html_content):
     # Create the email message
     msg = MIMEMultipart()
@@ -247,39 +246,44 @@ def send_email(smtp_server, smtp_port, sender_email, sender_password, receiver_e
     msg["Subject"] = subject
     msg.attach(MIMEText(html_content, "html"))
 
-    # Send the email
+    # Choose whether to use SSL or TLS
     try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()  # Secure the connection
-            server.login(sender_email, sender_password)
-            server.send_message(msg)
+        if smtp_port == 465:  # Use SSL
+            with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
+        elif smtp_port == 587:  # Use TLS
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()  # Secure the connection
+                server.login(sender_email, sender_password)
+                server.send_message(msg)
         return "Email sent successfully!"
     except Exception as e:
         return f"Failed to send email: {e}"
 
-# Create HTML table from DataFrame
+# HTML Table Conversion (for email body)
 def dataframe_to_html(df):
     return df.to_html(index=False, border=1, classes="dataframe", justify="center")
 
-# Add Email Sending Button
+# Email Sending Interface
 if not st.session_state.report_data.empty:
     st.write("📧 Email Report:")
-    
+
     # Collect email details from user input
     receiver_email = st.text_input("Enter recipient email address:")
     email_subject = st.text_input("Enter email subject:", value="Consolidated Pharma Society Report")
-    
-    # Use Outlook's SMTP server settings
-    smtp_server = st.text_input("Enter SMTP server (e.g., smtp-mail.outlook.com):", value="smtp-mail.outlook.com")
-    smtp_port = st.number_input("Enter SMTP port (e.g., 587):", min_value=1, value=587)
-    
-    # Set your new sender email here (def@incedoinc.com)
-    sender_email = "kushagra.sharma1@incedoinc.com"  # Update this to the desired sender email address
-    sender_password = st.text_input("Enter your email password:", type="password")
+
+    # Set Gmail SMTP server settings
+    smtp_server = "smtp.gmail.com"  # Gmail SMTP server
+    smtp_port = st.selectbox("Select SMTP Port:", [465, 587], index=1)  # Choose SSL or TLS
+
+    # Set your sender email here (e.g., your Gmail)
+    sender_email = st.text_input("Enter your Gmail address:")
+    sender_password = st.text_input("Enter your Gmail password (or App Password):", type="password")
 
     # Send email if button clicked
     if st.button("Send Email"):
-        if receiver_email and email_subject and smtp_server and smtp_port and sender_password:
+        if receiver_email and email_subject and sender_email and sender_password:
             html_table = dataframe_to_html(st.session_state.report_data)
             email_body = f"""
             <html>
@@ -315,7 +319,7 @@ if not st.session_state.report_data.empty:
             </html>
             """
             status = send_email(smtp_server, smtp_port, sender_email, sender_password, receiver_email, email_subject, email_body)
-            
+
             # Display success or error message
             if "successfully" in status:
                 st.success(status)
@@ -323,7 +327,6 @@ if not st.session_state.report_data.empty:
                 st.error(f"Error: {status}")
         else:
             st.error("Please fill in all required fields (email details and SMTP server).")
-
 
 # def append_to_google_sheet_public(df):
 #     try:
